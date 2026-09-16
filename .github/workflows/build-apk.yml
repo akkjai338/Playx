@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
 
       - name: Generate Android platform files
-        run: flutter create --platforms=android --org com.ankit.playx .
+        run: flutter create --project-name playx_video_player --platforms=android --org com.ankit.playx .
 
       - name: Patch AndroidManifest (permissions + PiP)
         run: python3 scripts/patch_manifest.py
