@@ -43,6 +43,18 @@ if "supportsPictureInPicture" not in content:
 with open(path, "w", encoding="utf-8") as f:
     f.write(content)
 
+# Flutter 3.24 generates Kotlin 1.7.x, while current Android dependencies
+# resolve Kotlin 1.9 metadata. Upgrade the generated plugin before Gradle runs.
+settings_path = Path("android/settings.gradle")
+if settings_path.exists():
+    settings = settings_path.read_text(encoding="utf-8")
+    settings = re.sub(
+        r'(id\s+"org\.jetbrains\.kotlin\.android"\s+version\s+")[^"]+("\s+apply\s+false)',
+        r'\g<1>1.9.24\g<2>',
+        settings,
+    )
+    settings_path.write_text(settings, encoding="utf-8")
+
 # Flutter's generated activity gets the native MediaStore bridge used by the
 # delete action. Keep this generated so a fresh `flutter create` remains safe.
 activity = Path("android/app/src/main/kotlin/com/ankit/playx/MainActivity.kt")
