@@ -42,6 +42,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   double? _volumeOverlay;
   bool _showSeekOverlay = false;
   double _doubleTapX = 0;
+  final TransformationController _zoomController = TransformationController();
+  double _zoom = 1.0;
 
   @override
   void initState() {
@@ -188,6 +190,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _hideTimer?.cancel();
     _controller?.dispose();
+    _zoomController.dispose();
     WakelockPlus.disable();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -228,9 +231,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
             children: [
               Center(
                 child: controller != null && controller.value.isInitialized
-                    ? AspectRatio(
-                        aspectRatio: controller.value.aspectRatio,
-                        child: VideoPlayer(controller),
+                    ? InteractiveViewer(
+                        transformationController: _zoomController,
+                        minScale: 1,
+                        maxScale: 5,
+                        boundaryMargin: const EdgeInsets.all(180),
+                        onInteractionUpdate: (_) {
+                          final next = _zoomController.value.getMaxScaleOnAxis();
+                          if ((next - _zoom).abs() > .03 && mounted) setState(() => _zoom = next);
+                        },
+                        child: AspectRatio(aspectRatio: controller.value.aspectRatio, child: VideoPlayer(controller)),
                       )
                     : const CircularProgressIndicator(),
               ),
@@ -324,18 +334,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const Spacer(),
             if (controller != null && controller.value.isInitialized)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                 child: Column(
                   children: [
-                    VideoProgressIndicator(
-                      controller,
-                      allowScrubbing: true,
-                      colors: const VideoProgressColors(
-                        playedColor: Colors.redAccent,
-                        bufferedColor: Colors.white30,
-                        backgroundColor: Colors.white12,
-                      ),
-                    ),
+                    ClipRRect(borderRadius: BorderRadius.circular(8), child: VideoProgressIndicator(controller, allowScrubbing: true, colors: const VideoProgressColors(playedColor: Color(0xff3B82F6), bufferedColor: Colors.white30, backgroundColor: Colors.white12))),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
