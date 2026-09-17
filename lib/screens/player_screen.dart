@@ -14,7 +14,8 @@ enum _DragMode { none, brightness, volume, seek }
 class PlayerScreen extends StatefulWidget {
   final List<VideoFile> videos;
   final int startIndex;
-  const PlayerScreen({super.key, required this.videos, required this.startIndex});
+  final String? onlineUrl;
+  const PlayerScreen({super.key, required this.videos, required this.startIndex, this.onlineUrl});
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -57,15 +58,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
     WakelockPlus.enable();
     VolumeController().showSystemUI = false;
     _primeGestureValues();
-    _loadVideo(widget.videos[_index].path);
+    _loadVideo(widget.onlineUrl ?? widget.videos[_index].path);
     _scheduleHideControls();
   }
 
   Future<void> _loadVideo(String path) async {
     final old = _controller;
-    final newController = VideoPlayerController.file(File(path));
-    await newController.initialize();
-    await newController.play();
+    final newController = path.startsWith('http://') || path.startsWith('https://')
+        ? VideoPlayerController.networkUrl(Uri.parse(path))
+        : VideoPlayerController.file(File(path));
+    try {
+      await newController.initialize();
+      await newController.play();
+    } catch (_) {
+      await newController.dispose();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Online video load nahi ho saka. Direct MP4, WebM ya HLS URL use karein.')));
+      }
+      return;
+    }
     setState(() {
       _controller = newController;
     });
@@ -284,7 +295,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        widget.videos[_index].name,
+                        widget.onlineUrl != null ? 'Online video' : widget.videos[_index].name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: Colors.white, fontSize: 15),

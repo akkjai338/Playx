@@ -40,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         SliverAppBar.large(
           pinned: true, expandedHeight: 170,
           title: Image.asset('assets/images/playx_logo.png', width: 82, height: 52, fit: BoxFit.contain),
-          actions: [IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh_rounded)), const SizedBox(width: 8)],
+          actions: [IconButton(onPressed: _openUrlDialog, icon: const Icon(Icons.link_rounded), tooltip: 'Play online URL'), IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh_rounded)), const SizedBox(width: 8)],
           flexibleSpace: FlexibleSpaceBar(background: Padding(
             padding: const EdgeInsets.fromLTRB(20, 104, 20, 14),
             child: Row(children: [
@@ -63,6 +63,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         else _videoSliver(),
       ]),
     );
+  }
+
+  Future<void> _openUrlDialog() async {
+    final controller = TextEditingController();
+    final url = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Play online video'),
+      content: TextField(controller: controller, autofocus: true, keyboardType: TextInputType.url, decoration: const InputDecoration(hintText: 'https://example.com/video.mp4', prefixIcon: Icon(Icons.link_rounded))),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: const Text('Play'))],
+    ));
+    controller.dispose();
+    if (!mounted || url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid http/https direct video URL enter karein.')));
+      return;
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(videos: const [], startIndex: 0, onlineUrl: url)));
   }
 
   Widget _folderSliver() => _folders.isEmpty ? const SliverFillRemaining(hasScrollBody: false, child: Center(child: Text('No folders found'))) : SliverPadding(
