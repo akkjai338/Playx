@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import '../models/video_file.dart';
 import '../services/video_scanner.dart';
+import '../services/video_library_service.dart';
 import 'folder_videos_screen.dart';
 import 'player_screen.dart';
 
