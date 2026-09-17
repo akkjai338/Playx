@@ -21,12 +21,14 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver {
   late int _index;
   VideoPlayerController? _controller;
   final Floating _floating = Floating();
 
   bool _controlsVisible = true;
+  bool _backgroundPlay = false;
+  bool _wasPlayingBeforeBackground = false;
   Timer? _hideTimer;
 
   _DragMode _dragMode = _DragMode.none;
@@ -49,6 +51,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _index = widget.startIndex;
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -115,9 +118,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     try {
       final status = await _floating.pipStatus;
       if (status == PiPStatus.enabled || status == PiPStatus.unavailable) return;
+      if (mounted) setState(() => _backgroundPlay = true);
       await _floating.enable(const ImmediatePiP());
     } catch (_) {
       // PiP not supported on this device/OS version - ignore silently.
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null) return;
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      _wasPlayingBeforeBackground = controller.value.isPlaying;
+      if (!_backgroundPlay && _wasPlayingBeforeBackground) controller.pause();
+    } else if (state == AppLifecycleState.resumed && _backgroundPlay && _wasPlayingBeforeBackground) {
+      controller.play();
     }
   }
 
@@ -199,6 +215,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
     _controller?.dispose();
     _zoomController.dispose();
@@ -304,6 +321,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     IconButton(
                       icon: const Icon(Icons.picture_in_picture_alt, color: Colors.white),
                       onPressed: _enterPiP,
+                    ),
+                    IconButton(
+                      tooltip: _backgroundPlay ? 'Background play on' : 'Background play off',
+                      icon: Icon(_backgroundPlay ? Icons.headphones_rounded : Icons.headphones_outlined, color: _backgroundPlay ? const Color(0xff60a5fa) : Colors.white),
+                      onPressed: () => setState(() => _backgroundPlay = !_backgroundPlay),
                     ),
                   ],
                 ),
