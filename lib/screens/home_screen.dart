@@ -33,6 +33,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   List<VideoFile> get _allVideos => _folders.expand((f) => f.videos).toList();
   List<VideoFile> get _filteredVideos => _allVideos.where((v) => v.name.toLowerCase().contains(_query.toLowerCase())).toList();
 
+  Future<void> _deleteVideo(VideoFile video) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Delete video?'),
+      content: Text('Delete "${video.name}" from your device?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        FilledButton.tonal(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete')),
+      ],
+    ));
+    if (confirmed != true || !mounted) return;
+    final deleted = await VideoLibraryService.deleteVideo(video.path);
+    if (!mounted) return;
+    if (deleted) {
+      setState(() {
+        _folders = _folders.map((folder) => VideoFolder(path: folder.path, name: folder.name, videos: folder.videos.where((item) => item.path != video.path).toList())).where((folder) => folder.videos.isNotEmpty).toList();
+      });
+      ThumbnailCache.invalidate(video.path);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Video deleted')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not delete the video. Check storage permission.')));
+    }
+  }
+
   @override Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
@@ -76,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (!mounted || url == null || url.isEmpty) return;
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid http/https direct video URL enter karein.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid http/https direct video URL.')));
       return;
     }
     Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(videos: const [], startIndex: 0, onlineUrl: url)));
@@ -95,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (videos.isEmpty) return const SliverFillRemaining(hasScrollBody: false, child: Center(child: Text('No videos found')));
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
-      sliver: _grid ? SliverGrid(delegate: SliverChildBuilderDelegate((context, i) => _VideoTile(video: videos[i], videos: videos, index: i), childCount: videos.length), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .78)) : SliverList(delegate: SliverChildBuilderDelegate((context, i) => _VideoRow(video: videos[i], videos: videos, index: i), childCount: videos.length)),
+      sliver: _grid ? SliverGrid(delegate: SliverChildBuilderDelegate((context, i) => _VideoTile(video: videos[i], videos: videos, index: i, onDelete: _deleteVideo), childCount: videos.length), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .78)) : SliverList(delegate: SliverChildBuilderDelegate((context, i) => _VideoRow(video: videos[i], videos: videos, index: i, onDelete: _deleteVideo), childCount: videos.length)),
     );
   }
 }
@@ -103,8 +126,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 class _SearchBox extends StatelessWidget { final TextEditingController controller; final ValueChanged<String> onChanged; const _SearchBox({required this.controller, required this.onChanged}); @override Widget build(BuildContext context) => TextField(controller: controller, onChanged: onChanged, decoration: InputDecoration(hintText: 'Search your videos', prefixIcon: const Icon(Icons.search_rounded), suffixIcon: controller.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { controller.clear(); onChanged(''); }) : null)); }
 class _Tab extends StatelessWidget { final String text; final bool selected; final VoidCallback onTap; const _Tab({required this.text, required this.selected, required this.onTap}); @override Widget build(BuildContext context) => ChoiceChip(label: Text(text), selected: selected, onSelected: (_) => onTap()); }
 class _FolderCard extends StatelessWidget { final VideoFolder folder; final VoidCallback onTap; const _FolderCard({required this.folder, required this.onTap}); @override Widget build(BuildContext context) => Card(child: ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7), leading: const CircleAvatar(radius: 24, child: Icon(Icons.folder_rounded)), title: Text(folder.name, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${folder.videos.length} videos'), trailing: const Icon(Icons.chevron_right_rounded), onTap: onTap)); }
-class _VideoTile extends StatelessWidget { final VideoFile video; final List<VideoFile> videos; final int index; const _VideoTile({required this.video, required this.videos, required this.index}); @override Widget build(BuildContext context) => Card(clipBehavior: Clip.antiAlias, child: InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(videos: videos, startIndex: index))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_Thumb(path: video.path, height: 118, width: double.infinity), Padding(padding: const EdgeInsets.fromLTRB(12, 10, 10, 2), child: Text(video.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))), Padding(padding: const EdgeInsets.fromLTRB(12, 3, 10, 10), child: Text(video.sizeLabel, style: Theme.of(context).textTheme.bodySmall))]))); }
-class _VideoRow extends StatelessWidget { final VideoFile video; final List<VideoFile> videos; final int index; const _VideoRow({required this.video, required this.videos, required this.index}); @override Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(contentPadding: const EdgeInsets.all(8), leading: _Thumb(path: video.path, height: 66, width: 96), title: Text(video.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text(video.sizeLabel), trailing: const Icon(Icons.play_circle_outline_rounded), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(videos: videos, startIndex: index))))); }
+class _VideoTile extends StatelessWidget { final VideoFile video; final List<VideoFile> videos; final int index; final Future<void> Function(VideoFile) onDelete; const _VideoTile({required this.video, required this.videos, required this.index, required this.onDelete}); @override Widget build(BuildContext context) => Card(clipBehavior: Clip.antiAlias, child: InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(videos: videos, startIndex: index))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_Thumb(path: video.path, height: 118, width: double.infinity), Padding(padding: const EdgeInsets.fromLTRB(12, 8, 4, 0), child: Row(children: [Expanded(child: Text(video.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))), IconButton(visualDensity: VisualDensity.compact, tooltip: 'Delete video', icon: const Icon(Icons.delete_outline_rounded, size: 20), onPressed: () => onDelete(video))])), Padding(padding: const EdgeInsets.fromLTRB(12, 0, 10, 10), child: Text(video.sizeLabel, style: Theme.of(context).textTheme.bodySmall))]))); }
+class _VideoRow extends StatelessWidget { final VideoFile video; final List<VideoFile> videos; final int index; final Future<void> Function(VideoFile) onDelete; const _VideoRow({required this.video, required this.videos, required this.index, required this.onDelete}); @override Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(contentPadding: const EdgeInsets.all(8), leading: _Thumb(path: video.path, height: 66, width: 96), title: Text(video.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text(video.sizeLabel), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Delete video', icon: const Icon(Icons.delete_outline_rounded), onPressed: () => onDelete(video)), const Icon(Icons.play_circle_outline_rounded)]), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(videos: videos, startIndex: index))))); }
 class _Thumb extends StatefulWidget { final String path; final double height, width; const _Thumb({required this.path, required this.height, required this.width}); @override State<_Thumb> createState() => _ThumbState(); }
 class _ThumbState extends State<_Thumb> { Uint8List? bytes; @override void initState() { super.initState(); _load(); } Future<void> _load() async { final x = ThumbnailCache.get(widget.path); if (x != null) { if (mounted) setState(() => bytes = x); return; } try { final b = await VideoThumbnail.thumbnailData(video: widget.path, imageFormat: ImageFormat.JPEG, maxWidth: 360, quality: 55); if (b != null) ThumbnailCache.put(widget.path, b); if (mounted) setState(() => bytes = b); } catch (_) {} } @override Widget build(BuildContext context) => Container(width: widget.width, height: widget.height, color: Colors.white10, child: bytes == null ? const Center(child: Icon(Icons.movie_outlined, color: Colors.white38)) : Image.memory(bytes!, fit: BoxFit.cover, gaplessPlayback: true)); }
 class _Skeleton extends StatelessWidget { const _Skeleton(); @override Widget build(BuildContext context) => ListView.builder(itemCount: 6, itemBuilder: (_, __) => const ListTile(leading: CircleAvatar(backgroundColor: Colors.white10), title: _Bar(), subtitle: _Bar())); }

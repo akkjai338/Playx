@@ -1,4 +1,5 @@
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -43,6 +44,18 @@ if "supportsPictureInPicture" not in content:
 
 with open(path, "w", encoding="utf-8") as f:
     f.write(content)
+
+# Use the supplied PlayX logo for the Android launcher/application branding.
+logo = Path("assets/images/playx_logo.png")
+drawable = Path("android/app/src/main/res/drawable")
+if logo.exists():
+    drawable.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(logo, drawable / "playx_logo.png")
+    manifest = Path(path).read_text(encoding="utf-8")
+    manifest = re.sub(r'\sandroid:icon="[^"]*"', '', manifest, count=1)
+    manifest = re.sub(r'\sandroid:label="[^"]*"', '', manifest, count=1)
+    manifest = re.sub(r'<application\b', '<application android:icon="@drawable/playx_logo" android:label="PlayX"', manifest, count=1)
+    Path(path).write_text(manifest, encoding="utf-8")
 
 # Flutter 3.24 generates Kotlin 1.7.x, while current Android dependencies
 # resolve Kotlin 1.9 metadata. Upgrade the generated plugin before Gradle runs.

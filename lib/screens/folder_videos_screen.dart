@@ -37,7 +37,7 @@ class _FolderVideosScreenState extends State<FolderVideosScreen> {
       setState(() => _videos.removeWhere((item) => item.path == video.path));
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Video deleted')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Video delete nahi ho saka. Permission check karein.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not delete the video. Check storage permission.')));
     }
   }
 
@@ -45,7 +45,7 @@ class _FolderVideosScreenState extends State<FolderVideosScreen> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.folder.name)),
     body: Stack(children: [
-      if (_videos.isEmpty) const Center(child: Text('Is folder mein koi video nahi hai.'))
+      if (_videos.isEmpty) const Center(child: Text('This folder has no videos.'))
       else ListView.builder(
         itemCount: _videos.length,
         cacheExtent: 800,

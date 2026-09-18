@@ -76,7 +76,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     } catch (_) {
       await newController.dispose();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Online video load nahi ho saka. Direct MP4, WebM ya HLS URL use karein.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not load the online video. Use a direct MP4, WebM, or HLS URL.')));
       }
       return;
     }
