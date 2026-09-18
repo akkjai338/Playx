@@ -263,6 +263,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                         transformationController: _zoomController,
                         minScale: 1,
                         maxScale: 5,
+                        // A one-finger swipe at 1x belongs to the player
+                        // gesture layer (brightness, volume, or seek). Only
+                        // allow video panning after an actual pinch zoom.
+                        panEnabled: _zoom > 1.02,
+                        scaleEnabled: true,
                         boundaryMargin: const EdgeInsets.all(180),
                         onInteractionUpdate: (_) {
                           final next = _zoomController.value.getMaxScaleOnAxis();
