@@ -236,6 +236,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         top: false,
         bottom: false,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => setState(() {
             _controlsVisible = !_controlsVisible;
             if (_controlsVisible) _scheduleHideControls();
